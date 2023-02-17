@@ -1,0 +1,25 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Rust cache
+      run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2
+    - name: Build
+      run: cargo build
+    - name: Run clippy
+      run: cargo clippy --tests
+    - name: Run tests
+      run: cargo test
