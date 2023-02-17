@@ -1,6 +1,6 @@
 # c2-logs
 
-Capture, filter and analyze logs from [Chatterino](https://chatterino.com) without restarting the application on Windows. You can download a prebuilt application from the [releases tab](/releases). This program uses [Windows' Debugger API](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/) to capture logs from Chatterino.
+Capture, filter and analyze logs from [Chatterino](https://chatterino.com) without restarting the application on Windows. You can download a prebuilt application from the [releases tab](https://github.com/Nerixyz/c2-logs/releases). This program uses [Windows' Debugger API](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/) to capture logs from Chatterino.
 
 ## Usage
 
