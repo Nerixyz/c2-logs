@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use widestring::{u16str, U16Str, U16String};
+
 #[derive(Default, Debug, Copy, Clone, Eq, PartialEq, clap::ValueEnum)]
 pub enum FilterMode {
     Include,
@@ -9,31 +11,30 @@ pub enum FilterMode {
 
 pub struct Filter {
     pub mode: FilterMode,
-    pub categories: HashSet<String>,
+    pub categories: HashSet<U16String>,
 }
 
 impl Filter {
-    pub fn should_print(&self, line: &[u8]) -> bool {
-        match get_category(line) {
-            Some(cat) => include_category(cat, self.mode, &self.categories),
-            None => match self.mode {
-                FilterMode::Include => false,
-                FilterMode::Exclude => true,
-            },
-        }
+    pub fn should_print(&self, category: &U16Str) -> bool {
+        include_category(category, self.mode, &self.categories)
     }
 }
 
-fn get_category(line: &[u8]) -> Option<&str> {
-    if line.starts_with(b"chatterino.") && line.len() > b"chatterino.".len() + 2 {
-        let pos = line.iter().position(|&x| x == b':')?;
-        std::str::from_utf8(&line[b"chatterino.".len()..pos]).ok()
+/// Tries to extract the log-category (if available).
+/// **Example:** For `chatterino.foo`, `foo` is returned.
+pub fn get_category(line: &U16Str) -> Option<&U16Str> {
+    const PREFIX: &U16Str = u16str!("chatterino.");
+
+    let line = line.as_slice();
+    if line.starts_with(PREFIX.as_slice()) && line.len() > PREFIX.len() + 2 {
+        let pos = line.iter().position(|&x| x == b':' as u16)?;
+        Some(U16Str::from_slice(&line[PREFIX.len()..pos]))
     } else {
         None
     }
 }
 
-fn include_category(category: &str, mode: FilterMode, filters: &HashSet<String>) -> bool {
+fn include_category(category: &U16Str, mode: FilterMode, filters: &HashSet<U16String>) -> bool {
     match mode {
         FilterMode::Exclude => !filters.contains(category),
         FilterMode::Include => filters.contains(category),
@@ -43,16 +44,18 @@ fn include_category(category: &str, mode: FilterMode, filters: &HashSet<String>)
 #[cfg(test)]
 mod tests {
     mod get_category {
+
         use crate::filter::*;
 
         #[test]
         fn has_category() {
             for (line, cat) in [
-                (b"chatterino.irc: hey" as &[u8], "irc"),
-                (b"chatterino.http: hey", "http"),
-                (b"chatterino.seventv.xd: hey", "seventv.xd"),
-                (b"chatterino.irc: hey", "irc"),
-                (b"chatterino.irc:lol", "irc"),
+                (u16str!("chatterino.irc: hey"), u16str!("irc")),
+                (u16str!("chatterino.http: hey"), u16str!("http")),
+                (u16str!("chatterino.seventv.xd: hey"), u16str!("seventv.xd")),
+                (u16str!("chatterino.irc: hey"), u16str!("irc")),
+                (u16str!("chatterino.irc:lol"), u16str!("irc")),
+                (u16str!("chatterino.:lol"), u16str!("")),
             ] {
                 assert_eq!(get_category(line), Some(cat))
             }
@@ -61,10 +64,11 @@ mod tests {
         #[test]
         fn no_category() {
             for line in [
-                b"chatterino.irc" as &[u8],
-                b"chatterino: hey",
-                b"libpng warning: invalid xd",
-                b"qt.irc: hey",
+                u16str!("chatterino.irc"),
+                u16str!("chatterino: hey"),
+                u16str!("libpng warning: invalid xd"),
+                u16str!("qt.irc: hey"),
+                u16str!(""),
             ] {
                 assert_eq!(get_category(line), None)
             }
@@ -78,101 +82,45 @@ mod tests {
 
         #[test]
         fn include() {
-            let filters = HashSet::from_iter(["irc", "http"].into_iter().map(ToOwned::to_owned));
+            let filters = HashSet::from_iter(
+                [u16str!("irc"), u16str!("http")]
+                    .into_iter()
+                    .map(ToOwned::to_owned),
+            );
 
-            for cat in ["irc", "http"] {
+            for cat in [u16str!("irc"), u16str!("http")] {
                 assert!(include_category(cat, FilterMode::Include, &filters));
             }
 
-            for cat in ["seventv", "bttv", "twitch"] {
+            for cat in [
+                u16str!("seventv"),
+                u16str!("bttv"),
+                u16str!("twitch"),
+                u16str!(""),
+            ] {
                 assert!(!include_category(cat, FilterMode::Include, &filters));
             }
         }
 
         #[test]
         fn exclude() {
-            let filters = HashSet::from_iter(["irc", "http"].into_iter().map(ToOwned::to_owned));
+            let filters = HashSet::from_iter(
+                [u16str!("irc"), u16str!("http")]
+                    .into_iter()
+                    .map(ToOwned::to_owned),
+            );
 
-            for cat in ["irc", "http"] {
+            for cat in [u16str!("irc"), u16str!("http")] {
                 assert!(!include_category(cat, FilterMode::Exclude, &filters));
             }
 
-            for cat in ["seventv", "bttv", "twitch"] {
+            for cat in [
+                u16str!("seventv"),
+                u16str!("bttv"),
+                u16str!("twitch"),
+                u16str!(""),
+            ] {
                 assert!(include_category(cat, FilterMode::Exclude, &filters));
-            }
-        }
-    }
-
-    mod should_print {
-        use crate::filter::*;
-
-        #[test]
-        fn include() {
-            let filter = Filter {
-                categories: HashSet::from_iter(["irc", "http"].into_iter().map(ToOwned::to_owned)),
-                mode: FilterMode::Include,
-            };
-
-            for line in [
-                b"chatterino.irc: hey" as &[u8],
-                b"chatterino.http: hey",
-                b"chatterino.irc:lol",
-            ] {
-                assert!(
-                    filter.should_print(line),
-                    "[print] line={}",
-                    std::str::from_utf8(line).unwrap()
-                );
-            }
-
-            for line in [
-                b"chatterino.seventv: hey" as &[u8],
-                b"chatterino.bttv: hey",
-                b"chatterino.twitch:lol",
-                b"libpng warning: forsen",
-                b"qt.irc: hey",
-                b"xd",
-            ] {
-                assert!(
-                    !filter.should_print(line),
-                    "[no-print] line={}",
-                    std::str::from_utf8(line).unwrap()
-                );
-            }
-        }
-
-        #[test]
-        fn exclude() {
-            let filter = Filter {
-                categories: HashSet::from_iter(["irc", "http"].into_iter().map(ToOwned::to_owned)),
-                mode: FilterMode::Exclude,
-            };
-
-            for line in [
-                b"chatterino.seventv: hey" as &[u8],
-                b"chatterino.bttv: hey",
-                b"chatterino.twitch:lol",
-                b"libpng warning: forsen",
-                b"qt.irc: hey",
-                b"xd",
-            ] {
-                assert!(
-                    filter.should_print(line),
-                    "[print] line={}",
-                    std::str::from_utf8(line).unwrap()
-                );
-            }
-
-            for line in [
-                b"chatterino.irc: hey" as &[u8],
-                b"chatterino.http: hey",
-                b"chatterino.irc:lol",
-            ] {
-                assert!(
-                    !filter.should_print(line),
-                    "[no-print] line={}",
-                    std::str::from_utf8(line).unwrap()
-                );
             }
         }
     }

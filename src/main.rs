@@ -1,19 +1,19 @@
 #![deny(clippy::cargo)]
 
-mod double_buffer;
 mod filter;
 mod managed_types;
+mod printer;
 mod processes;
+mod str_ext;
 mod strings;
 
-use std::{collections::HashSet, ffi::OsString, io::Write};
+use std::{collections::HashSet, ffi::OsString};
 
 use anyhow::{bail, Context};
 use clap::Parser;
-use double_buffer::DoubleBuffer;
 use filter::FilterMode;
 use managed_types::ManagedHandle;
-use strings::{is_wide_string, read_string_into};
+use printer::Printer;
 use windows::{
     core::Error as WinError,
     Win32::{
@@ -48,13 +48,11 @@ struct Args {
     #[arg(long, help = "Use this to specify a specific process-id to attach to.")]
     pid: Option<u32>,
     #[arg(help = "Filters for logging categories, for example 'http', 'hotkeys', or 'irc'.")]
-    filters: Vec<String>,
+    filters: Vec<OsString>,
 }
 
 fn print_debug_events(process_handle: HANDLE, filter: filter::Filter) -> anyhow::Result<()> {
-    let mut stdout = std::io::stdout().lock();
-
-    let mut buffers = DoubleBuffer::new();
+    let mut printer = Printer::new(process_handle, filter);
 
     loop {
         let mut debug_event: DEBUG_EVENT = unsafe { std::mem::zeroed() };
@@ -65,18 +63,12 @@ fn print_debug_events(process_handle: HANDLE, filter: filter::Filter) -> anyhow:
         }
 
         match debug_event.dwDebugEventCode {
-            OUTPUT_DEBUG_STRING_EVENT => unsafe {
-                let info = debug_event.u.DebugString;
-                read_string_into(buffers.next_mut(), process_handle, info)
-                    .context("read_string_into")?;
-
-                if buffers.last() != buffers.next() && !is_wide_string(buffers.next()) {
-                    if filter.should_print(buffers.next()) {
-                        stdout.write(buffers.next()).ok();
-                    }
-                    buffers.swap();
+            OUTPUT_DEBUG_STRING_EVENT => {
+                let info = unsafe { debug_event.u.DebugString };
+                if info.fUnicode != 0 {
+                    printer.read_string(info)?;
                 }
-            },
+            }
             EXIT_PROCESS_DEBUG_EVENT => {
                 break;
             }
@@ -135,7 +127,7 @@ fn main() -> anyhow::Result<()> {
             chatterino_pid,
             filter::Filter {
                 mode: args.mode,
-                categories: HashSet::from_iter(args.filters.into_iter()),
+                categories: HashSet::from_iter(args.filters.into_iter().map(From::from)),
             },
         ) {
             eprintln!("Failed to debug process (pid={chatterino_pid}): {e}");
