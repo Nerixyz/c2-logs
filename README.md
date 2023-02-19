@@ -28,8 +28,8 @@ cargo build -r
 
 ### Installing
 
-To install the program, run
+To install the program with `cargo`, run
 
 ```powershell
-cargo install --path .
+cargo install c2-logs
 ```
