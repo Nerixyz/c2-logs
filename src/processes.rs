@@ -4,10 +4,10 @@ use anyhow::bail;
 use windows::{
     core::{Error as WinError, Result, PCWSTR},
     Win32::{
-        Foundation::{CloseHandle, HINSTANCE},
+        Foundation::{CloseHandle, HMODULE},
         System::{
             Diagnostics::Debug::{DebugActiveProcess, DebugSetProcessKillOnExit},
-            ProcessStatus::{K32EnumProcessModules, K32EnumProcesses, K32GetModuleBaseNameW},
+            ProcessStatus::{EnumProcessModules, EnumProcesses, GetModuleBaseNameW},
             Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ},
         },
     },
@@ -19,7 +19,7 @@ pub fn get_chatterino_pid(executable_name: &OsStr) -> anyhow::Result<Option<u32>
     let mut pids = [0u32; N_PROCESSES];
     let mut n_pids = 0;
     let ok = unsafe {
-        K32EnumProcesses(
+        EnumProcesses(
             pids.as_mut_ptr(),
             std::mem::size_of::<[u32; N_PROCESSES]>() as u32,
             &mut n_pids,
@@ -87,12 +87,12 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
     unsafe {
         let handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid)?;
 
-        let mut process_module = HINSTANCE::default();
+        let mut process_module = HMODULE::default();
         let mut _needed = 0;
-        if !K32EnumProcessModules(
+        if !EnumProcessModules(
             handle,
             &mut process_module,
-            std::mem::size_of::<HINSTANCE>() as u32,
+            std::mem::size_of::<HMODULE>() as u32,
             &mut _needed,
         )
         .as_bool()
@@ -102,7 +102,7 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
 
         let mut buf = vec![0u16; chatterino_name.len()];
 
-        if K32GetModuleBaseNameW(handle, process_module, &mut buf) == 0 {
+        if GetModuleBaseNameW(handle, process_module, &mut buf) == 0 {
             return Err(WinError::from_win32());
         }
 
