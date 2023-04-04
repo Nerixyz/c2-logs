@@ -23,8 +23,7 @@ use windows::{
                 ContinueDebugEvent, WaitForDebugEventEx, DEBUG_EVENT, EXIT_PROCESS_DEBUG_EVENT,
                 OUTPUT_DEBUG_STRING_EVENT,
             },
-            Threading::{OpenProcess, PROCESS_ALL_ACCESS},
-            WindowsProgramming::INFINITE,
+            Threading::{OpenProcess, INFINITE, PROCESS_ALL_ACCESS},
         },
     },
 };
