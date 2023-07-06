@@ -105,7 +105,10 @@ fn main() -> anyhow::Result<()> {
         Some(pid) => pid,
         None => {
             let Some(pid) = processes::get_chatterino_pid(&args.executable)? else {
-                eprintln!("Failed to find chatterino process (searched for {}).", args.executable.to_string_lossy());
+                eprintln!(
+                    "Failed to find chatterino process (searched for {}).",
+                    args.executable.to_string_lossy()
+                );
                 std::process::exit(1);
             };
             pid
