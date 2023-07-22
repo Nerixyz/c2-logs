@@ -6,6 +6,7 @@ Capture, filter and analyze logs from [Chatterino](https://chatterino.com) witho
 
 1. Open Chatterino regularly
 2. Run `c2-logs` (or `./c2-logs.exe`)
+3. In Chatterino, run `/c2-set-logging-rules chatterino.*.debug=true` (or `/c2-set-logging-rules *.debug=true`) to enable debug logging.
 
 You can filter the logs by providing arguments. The default mode is `exclude`, meaning any category you provide will be excluded.
 
