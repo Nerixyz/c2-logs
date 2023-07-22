@@ -1,6 +1,7 @@
 #![deny(clippy::cargo)]
 
 mod filter;
+mod logging;
 mod managed_types;
 mod printer;
 mod processes;
@@ -95,12 +96,16 @@ fn debugger_thread(pid: u32, filter: filter::Filter) -> anyhow::Result<()> {
     };
     let handle = ManagedHandle::new(handle);
     processes::attach_debugger(pid)?;
+
+    log_info!("Attached to {pid}");
+
     print_debug_events(unsafe { handle.inner() }, filter)?;
     Ok(())
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+
     let chatterino_pid = match args.pid {
         Some(pid) => pid,
         None => {
@@ -114,6 +119,7 @@ fn main() -> anyhow::Result<()> {
             pid
         }
     };
+    log_info!("Found chatterino PID: {chatterino_pid}");
 
     let (tx, rx) = std::sync::mpsc::channel();
     {
