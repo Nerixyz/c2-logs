@@ -1,6 +1,6 @@
 use std::{ffi::OsStr, os::windows::prelude::OsStrExt};
 
-use anyhow::bail;
+use anyhow::Context;
 use windows::{
     core::{Error as WinError, Result, PCWSTR},
     Win32::{
@@ -18,19 +18,15 @@ const N_PROCESSES: usize = 1024;
 pub fn get_chatterino_pid(executable_name: &OsStr) -> anyhow::Result<Option<u32>> {
     let mut pids = [0u32; N_PROCESSES];
     let mut n_pids = 0;
-    let ok = unsafe {
+    unsafe {
         EnumProcesses(
             pids.as_mut_ptr(),
             std::mem::size_of::<[u32; N_PROCESSES]>() as u32,
             &mut n_pids,
         )
+        .context("EnumerateProcesses")?
     };
-    if !ok.as_bool() {
-        bail!(
-            "Failed to enumerate processes: {:?}",
-            WinError::from_win32()
-        )
-    }
+
     let n_pids = (n_pids as usize) / std::mem::size_of::<u32>();
 
     let wide_chatterino_name: Vec<u16> = executable_name
@@ -48,20 +44,10 @@ pub fn get_chatterino_pid(executable_name: &OsStr) -> anyhow::Result<Option<u32>
 
 pub fn attach_debugger(pid: u32) -> anyhow::Result<()> {
     unsafe {
-        if !DebugActiveProcess(pid).as_bool() {
-            bail!(
-                "Failed to debug process: {:?} - pid={pid}",
-                WinError::from_win32()
-            )
-        }
-        if !DebugSetProcessKillOnExit(false).as_bool() {
-            bail!(
-                "Failed to disable kill on exit: {:?} - pid={pid}",
-                WinError::from_win32()
-            )
-        }
+        DebugActiveProcess(pid).with_context(|| format!("DebugActiveProcess(pid={pid})"))?;
 
-        Ok(())
+        DebugSetProcessKillOnExit(false)
+            .with_context(|| format!("DebugSetProcessKillOnExit(false) [pid={pid}]"))
     }
 }
 
@@ -89,16 +75,12 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
 
         let mut process_module = HMODULE::default();
         let mut _needed = 0;
-        if !EnumProcessModules(
+        EnumProcessModules(
             handle,
             &mut process_module,
             std::mem::size_of::<HMODULE>() as u32,
             &mut _needed,
-        )
-        .as_bool()
-        {
-            return Err(WinError::from_win32());
-        }
+        )?;
 
         let mut buf = vec![0u16; chatterino_name.len()];
 
@@ -106,7 +88,7 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
             return Err(WinError::from_win32());
         }
 
-        CloseHandle(handle);
+        let _ = CloseHandle(handle);
 
         Ok(wstr_eq(
             PCWSTR(chatterino_name.as_ptr()),
@@ -117,7 +99,7 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
 
 #[cfg(test)]
 mod tests {
-    use windows::w;
+    use windows::core::w;
 
     use super::*;
 

@@ -18,7 +18,7 @@ impl ManagedHandle {
 impl Drop for ManagedHandle {
     fn drop(&mut self) {
         unsafe {
-            CloseHandle(self.0);
+            let _ = CloseHandle(self.0);
         }
     }
 }
