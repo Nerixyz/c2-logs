@@ -10,22 +10,19 @@ mod strings;
 
 use std::{collections::HashSet, ffi::OsString};
 
-use anyhow::{bail, Context};
+use anyhow::Context;
 use clap::Parser;
 use filter::FilterMode;
 use managed_types::ManagedHandle;
 use printer::Printer;
-use windows::{
-    core::Error as WinError,
-    Win32::{
-        Foundation::{DBG_EXCEPTION_NOT_HANDLED, HANDLE},
-        System::{
-            Diagnostics::Debug::{
-                ContinueDebugEvent, WaitForDebugEventEx, DEBUG_EVENT, EXIT_PROCESS_DEBUG_EVENT,
-                OUTPUT_DEBUG_STRING_EVENT,
-            },
-            Threading::{OpenProcess, INFINITE, PROCESS_ALL_ACCESS},
+use windows::Win32::{
+    Foundation::{DBG_EXCEPTION_NOT_HANDLED, HANDLE},
+    System::{
+        Diagnostics::Debug::{
+            ContinueDebugEvent, WaitForDebugEventEx, DEBUG_EVENT, EXIT_PROCESS_DEBUG_EVENT,
+            OUTPUT_DEBUG_STRING_EVENT,
         },
+        Threading::{OpenProcess, INFINITE, PROCESS_ALL_ACCESS},
     },
 };
 
@@ -57,9 +54,7 @@ fn print_debug_events(process_handle: HANDLE, filter: filter::Filter) -> anyhow:
     loop {
         let mut debug_event: DEBUG_EVENT = unsafe { std::mem::zeroed() };
         unsafe {
-            if !WaitForDebugEventEx(&mut debug_event, INFINITE).as_bool() {
-                bail!("WaitForDebugEventEx failed: {:?}", WinError::from_win32())
-            }
+            WaitForDebugEventEx(&mut debug_event, INFINITE).context("WaitForDebugEventEx")?;
         }
 
         match debug_event.dwDebugEventCode {
@@ -76,15 +71,12 @@ fn print_debug_events(process_handle: HANDLE, filter: filter::Filter) -> anyhow:
         }
 
         unsafe {
-            if !ContinueDebugEvent(
+            ContinueDebugEvent(
                 debug_event.dwProcessId,
                 debug_event.dwThreadId,
                 DBG_EXCEPTION_NOT_HANDLED,
             )
-            .as_bool()
-            {
-                bail!("ContinueDebugEvent failed: {:?}", WinError::from_win32())
-            }
+            .context("ContiueDebugEvent")?;
         }
     }
     Ok(())
