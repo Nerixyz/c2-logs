@@ -2,9 +2,9 @@ name: Lint
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,12 +14,16 @@ jobs:
     name: Check Formatting
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        override: true
-        toolchain: nightly
-    - run: rustup component add rustfmt
-    - name: rustfmt
-      run: cargo fmt --check
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          override: true
+          toolchain: nightly
+      - run: rustup component add rustfmt
+      - name: rustfmt
+        run: cargo fmt --check
+      - name: Check formatting with Prettier
+        uses: actionsx/prettier@v3
+        with:
+          args: -c .
