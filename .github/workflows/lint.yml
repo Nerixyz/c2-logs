@@ -23,3 +23,7 @@ jobs:
       - run: rustup component add rustfmt
       - name: rustfmt
         run: cargo fmt --check
+      - name: Check formatting with Prettier
+        uses: actionsx/prettier@v3
+        with:
+          args: -c .
