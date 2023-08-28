@@ -11,7 +11,7 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.75"
-clap = { version = "4.3.23", features = ["derive"] }
+clap = { version = "4.4.1", features = ["derive"] }
 colored = "2.0.4"
 ctrlc = "3.4.0"
 widestring = "1.0.2"
