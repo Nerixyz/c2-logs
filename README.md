@@ -5,18 +5,22 @@ Capture, filter and analyze logs from [Chatterino](https://chatterino.com) witho
 ## Usage
 
 1. Open Chatterino regularly
-2. Run `c2-logs -r chatterino.*.debug=true` (if you don't have it in your `PATH`, run it using `.\c2-logs.exe`)
+2. Run `c2-logs chatterino.*.debug=true` (if you don't have it in your `PATH`, run it using `.\c2-logs.exe`)
 
-You can filter the logs by providing arguments. The default mode is `exclude`, meaning any category you provide will be excluded.
+You can specify multiple rules.
+To enable debug logging from Chatterino while excluding the `chatterino.http` category, run `c2-logs chatterino.*.debug=true chatterino.http.debug=false`.
+Check [Qt's documentation](https://doc.qt.io/qt-6/qloggingcategory.html#configuring-categories) on the logging rules.
 
-**Example:** `chatterino.http` is usually a bit spammy, and maybe you don't want to see `chatterino.irc` either. To exclude these categories, run `c2-logs http irc`.
+```text
+Usage: c2-logs.exe [OPTIONS] [RULES]...
 
-You can change the mode to `include`, meaning only logs in the categories you provide are included.
+Arguments:
+  [RULES]...  Qt filter rules (e.g. *.debug=true or foo.bar.debug=false) multiple rules will be joined by a newline
 
-**Example:** To only include `chatterino.twitch` and `chatterino.irc`, run `c2-logs -m include twitch irc`.
-
-If you installed Chatterino with a different executable name, you can pass this using `--exe <name>`.
-If you have multiple instances open and want to select a specific one, then you can specify a process-id using `--pid <id>`.
+Options:
+      --exe <EXECUTABLE>  Use this to specify the name of the chatterino executable. [default: chatterino.exe]
+      --pid <PID>         Use this to specify a specific process-id to attach to.
+```
 
 ## Building
 
