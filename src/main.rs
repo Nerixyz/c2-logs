@@ -5,6 +5,7 @@ mod logging;
 mod managed_types;
 mod printer;
 mod processes;
+mod qt;
 mod str_ext;
 mod strings;
 
@@ -46,6 +47,11 @@ struct Args {
     pid: Option<u32>,
     #[arg(help = "Filters for logging categories, for example 'http', 'hotkeys', or 'irc'.")]
     filters: Vec<OsString>,
+    #[arg(
+        short,
+        help = "A Qt filter rules (e.g. *.debug=true or foo.bar.debug=false)"
+    )]
+    rules: Option<String>,
 }
 
 fn print_debug_events(process_handle: HANDLE, filter: filter::Filter) -> anyhow::Result<()> {
@@ -95,6 +101,14 @@ fn debugger_thread(pid: u32, filter: filter::Filter) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn apply_logging_rules(pid: u32, rules: &str) -> anyhow::Result<()> {
+    let (v, path) = processes::qtcore_path(pid).context("finding QtCore path")?;
+    log_info!("Chatterino using {v:?} QtCore loaded from {path:?}");
+    qt::set_logging_rules(pid, v, &path, rules).context("set_logging_rules")?;
+    log_info!("Applied logging rules!");
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
@@ -112,6 +126,10 @@ fn main() -> anyhow::Result<()> {
         }
     };
     log_info!("Found chatterino PID: {chatterino_pid}");
+
+    if let Some(ref rules) = args.rules {
+        apply_logging_rules(chatterino_pid, rules)?;
+    }
 
     let (tx, rx) = std::sync::mpsc::channel();
     {

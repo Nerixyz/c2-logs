@@ -11,6 +11,7 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.75"
+bytemuck = { version = "1.14.0", features = ["derive"] }
 clap = { version = "4.4.4", features = ["derive"] }
 colored = "2.0.4"
 ctrlc = "3.4.1"
@@ -24,7 +25,10 @@ windows = { version = "0.51.1", features = [
     "Win32_System_Threading",
     "Win32_System_Console",
     "Win32_System_Diagnostics_Debug",
-    "Win32_System_WindowsProgramming"
+    "Win32_System_WindowsProgramming",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_Security",
 ] }
 
 [profile.release]
@@ -36,4 +40,3 @@ lto = true
 inherits = "release"
 debug = true
 split-debuginfo = "packed"
-

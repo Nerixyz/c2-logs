@@ -15,6 +15,14 @@ impl ManagedHandle {
     }
 }
 
+impl std::ops::Deref for ManagedHandle {
+    type Target = HANDLE;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl Drop for ManagedHandle {
     fn drop(&mut self) {
         unsafe {
