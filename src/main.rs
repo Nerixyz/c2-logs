@@ -1,6 +1,5 @@
 #![deny(clippy::cargo)]
 
-mod filter;
 mod logging;
 mod managed_types;
 mod printer;
@@ -9,11 +8,10 @@ mod qt;
 mod str_ext;
 mod strings;
 
-use std::{collections::HashSet, ffi::OsString};
+use std::ffi::OsString;
 
 use anyhow::Context;
 use clap::Parser;
-use filter::FilterMode;
 use managed_types::ManagedHandle;
 use printer::Printer;
 use windows::Win32::{
@@ -31,13 +29,6 @@ use windows::Win32::{
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(
-        short = 'm',
-        value_enum,
-        default_value = "exclude",
-        help = "How to interpret the filters. 'include' will only show the specified categories. 'exclude' will show logs from all categories except the ones specified."
-    )]
-    mode: FilterMode,
-    #[arg(
         long = "exe",
         default_value = "chatterino.exe",
         help = "Use this to specify the name of the chatterino executable."
@@ -45,17 +36,14 @@ struct Args {
     executable: OsString,
     #[arg(long, help = "Use this to specify a specific process-id to attach to.")]
     pid: Option<u32>,
-    #[arg(help = "Filters for logging categories, for example 'http', 'hotkeys', or 'irc'.")]
-    filters: Vec<OsString>,
     #[arg(
-        short,
-        help = "A Qt filter rules (e.g. *.debug=true or foo.bar.debug=false)"
+        help = "Qt filter rules (e.g. *.debug=true or foo.bar.debug=false) multiple rules will be joined by a newline"
     )]
-    rules: Option<String>,
+    rules: Vec<String>,
 }
 
-fn print_debug_events(process_handle: HANDLE, filter: filter::Filter) -> anyhow::Result<()> {
-    let mut printer = Printer::new(process_handle, filter);
+fn print_debug_events(process_handle: HANDLE) -> anyhow::Result<()> {
+    let mut printer = Printer::new(process_handle);
 
     loop {
         let mut debug_event: DEBUG_EVENT = unsafe { std::mem::zeroed() };
@@ -88,7 +76,7 @@ fn print_debug_events(process_handle: HANDLE, filter: filter::Filter) -> anyhow:
     Ok(())
 }
 
-fn debugger_thread(pid: u32, filter: filter::Filter) -> anyhow::Result<()> {
+fn debugger_thread(pid: u32) -> anyhow::Result<()> {
     let handle = unsafe {
         OpenProcess(PROCESS_ALL_ACCESS, false, pid).context("OpenProcess(PROCESS_ALL_ACCESS,..)")?
     };
@@ -97,7 +85,7 @@ fn debugger_thread(pid: u32, filter: filter::Filter) -> anyhow::Result<()> {
 
     log_info!("Attached to {pid}");
 
-    print_debug_events(unsafe { handle.inner() }, filter)?;
+    print_debug_events(unsafe { handle.inner() })?;
     Ok(())
 }
 
@@ -127,8 +115,8 @@ fn main() -> anyhow::Result<()> {
     };
     log_info!("Found chatterino PID: {chatterino_pid}");
 
-    if let Some(ref rules) = args.rules {
-        apply_logging_rules(chatterino_pid, rules)?;
+    if !args.rules.is_empty() {
+        apply_logging_rules(chatterino_pid, &args.rules.join("\n"))?;
     }
 
     let (tx, rx) = std::sync::mpsc::channel();
@@ -141,13 +129,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     std::thread::spawn(move || {
-        if let Err(e) = debugger_thread(
-            chatterino_pid,
-            filter::Filter {
-                mode: args.mode,
-                categories: HashSet::from_iter(args.filters.into_iter().map(From::from)),
-            },
-        ) {
+        if let Err(e) = debugger_thread(chatterino_pid) {
             eprintln!("Failed to debug process (pid={chatterino_pid}): {e}");
             tx.send(()).ok();
         }
