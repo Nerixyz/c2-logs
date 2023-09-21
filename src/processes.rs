@@ -1,19 +1,27 @@
-use std::{ffi::OsStr, os::windows::prelude::OsStrExt};
+use std::{
+    ffi::{CStr, CString, OsStr},
+    os::windows::prelude::OsStrExt,
+};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use windows::{
     core::{Error as WinError, Result, PCWSTR},
     Win32::{
-        Foundation::{CloseHandle, HMODULE},
+        Foundation::{CloseHandle, HMODULE, MAX_PATH},
         System::{
             Diagnostics::Debug::{DebugActiveProcess, DebugSetProcessKillOnExit},
-            ProcessStatus::{EnumProcessModules, EnumProcesses, GetModuleBaseNameW},
+            ProcessStatus::{
+                EnumProcessModules, EnumProcesses, GetModuleBaseNameW, GetModuleFileNameExA,
+            },
             Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ},
         },
     },
 };
 
+use crate::{managed_types::ManagedHandle, qt::QtVersion};
+
 const N_PROCESSES: usize = 1024;
+const N_MODULES: usize = 1024;
 
 pub fn get_chatterino_pid(executable_name: &OsStr) -> anyhow::Result<Option<u32>> {
     let mut pids = [0u32; N_PROCESSES];
@@ -97,6 +105,42 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
     }
 }
 
+pub fn qtcore_path(pid: u32) -> anyhow::Result<(QtVersion, CString)> {
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid)?;
+        let handle = ManagedHandle::new(handle);
+
+        let mut modules = [HMODULE::default(); N_MODULES];
+        let mut needed = 0;
+        EnumProcessModules(
+            *handle,
+            modules.as_mut_ptr(),
+            (std::mem::size_of::<HMODULE>() * modules.len()) as u32,
+            &mut needed,
+        )?;
+
+        let mut buf = vec![0u8; MAX_PATH as usize];
+        let n_modules = needed as usize / std::mem::size_of::<HMODULE>();
+
+        for module in &modules[..n_modules] {
+            GetModuleFileNameExA(*handle, *module, &mut buf);
+            let Ok(cstr) = CStr::from_bytes_until_nul(&buf) else {
+                continue;
+            };
+            let Ok(path) = cstr.to_str() else {
+                continue;
+            };
+            if path.ends_with("Qt6Core.dll") {
+                return Ok((QtVersion::Qt6, cstr.to_owned()));
+            }
+            if path.ends_with("Qt5Core.dll") {
+                return Ok((QtVersion::Qt5, cstr.to_owned()));
+            }
+        }
+
+        Err(anyhow!("No Qt{{5,6}}Core.dll loaded"))
+    }
+}
 #[cfg(test)]
 mod tests {
     use windows::core::w;

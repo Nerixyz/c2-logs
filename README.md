@@ -1,12 +1,11 @@
 # c2-logs
 
-Capture, filter and analyze logs from [Chatterino](https://chatterino.com) without restarting the application on Windows. You can download a prebuilt application from the [releases tab](https://github.com/Nerixyz/c2-logs/releases). This program uses [Windows' Debugger API](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/) to capture logs from Chatterino.
+Capture, filter and analyze logs from [Chatterino](https://chatterino.com) without restarting the application on Windows. You can download a prebuilt application from the [releases tab](https://github.com/Nerixyz/c2-logs/releases). This program uses [Windows' Debugger API](https://learn.microsoft.com/en-us/windows/win32/api/debugapi/) to capture logs from Chatterino and calls [`QLoggingCategory::setFilterRules`](https://doc.qt.io/qt-6/qloggingcategory.html#setFilterRules).
 
 ## Usage
 
 1. Open Chatterino regularly
-2. Run `c2-logs` (or `./c2-logs.exe`)
-3. In Chatterino, run `/c2-set-logging-rules chatterino.*.debug=true` (or `/c2-set-logging-rules *.debug=true`) to enable debug logging.
+2. Run `c2-logs -r chatterino.*.debug=true` (if you don't have it in your `PATH`, run it using `.\c2-logs.exe`)
 
 You can filter the logs by providing arguments. The default mode is `exclude`, meaning any category you provide will be excluded.
 
