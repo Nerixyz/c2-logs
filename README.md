@@ -20,6 +20,7 @@ Arguments:
 Options:
       --exe <EXECUTABLE>  Use this to specify the name of the chatterino executable. [default: chatterino.exe]
       --pid <PID>         Use this to specify a specific process-id to attach to.
+  -o <OUTPUT_FILE>        Output to a file instead
 ```
 
 ## Building

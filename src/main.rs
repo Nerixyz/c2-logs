@@ -8,7 +8,7 @@ mod qt;
 mod str_ext;
 mod strings;
 
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 
 use anyhow::Context;
 use clap::Parser;
@@ -34,16 +34,21 @@ struct Args {
         help = "Use this to specify the name of the chatterino executable."
     )]
     executable: OsString,
+
     #[arg(long, help = "Use this to specify a specific process-id to attach to.")]
     pid: Option<u32>,
+
+    #[arg(short, help = "Output to a file instead")]
+    output_file: Option<OsString>,
+
     #[arg(
         help = "Qt filter rules (e.g. *.debug=true or foo.bar.debug=false) multiple rules will be joined by a newline"
     )]
     rules: Vec<String>,
 }
 
-fn print_debug_events(process_handle: HANDLE) -> anyhow::Result<()> {
-    let mut printer = Printer::new(process_handle);
+fn print_debug_events(process_handle: HANDLE, file: Option<&OsStr>) -> anyhow::Result<()> {
+    let mut printer = Printer::new(process_handle, file).context("Opening output file")?;
 
     loop {
         let mut debug_event: DEBUG_EVENT = unsafe { std::mem::zeroed() };
@@ -76,7 +81,7 @@ fn print_debug_events(process_handle: HANDLE) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn debugger_thread(pid: u32) -> anyhow::Result<()> {
+fn debugger_thread(pid: u32, output_file: Option<&OsStr>) -> anyhow::Result<()> {
     let handle = unsafe {
         OpenProcess(PROCESS_ALL_ACCESS, false, pid).context("OpenProcess(PROCESS_ALL_ACCESS,..)")?
     };
@@ -85,7 +90,7 @@ fn debugger_thread(pid: u32) -> anyhow::Result<()> {
 
     log_info!("Attached to {pid}");
 
-    print_debug_events(unsafe { handle.inner() })?;
+    print_debug_events(unsafe { handle.inner() }, output_file)?;
     Ok(())
 }
 
@@ -129,8 +134,11 @@ fn main() -> anyhow::Result<()> {
     }
 
     std::thread::spawn(move || {
-        if let Err(e) = debugger_thread(chatterino_pid) {
-            eprintln!("Failed to debug process (pid={chatterino_pid}): {e}");
+        if let Err(e) = debugger_thread(chatterino_pid, args.output_file.as_deref()) {
+            eprintln!(
+                "Failed to debug process (pid={chatterino_pid}): {e} ({})",
+                e.root_cause()
+            );
             tx.send(()).ok();
         }
     });
