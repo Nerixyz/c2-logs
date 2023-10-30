@@ -12,7 +12,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0.75"
 bytemuck = { version = "1.14.0", features = ["derive"] }
-clap = { version = "4.4.6", features = ["derive"] }
+clap = { version = "4.4.7", features = ["derive"] }
 colored = "2.0.4"
 ctrlc = "3.4.1"
 widestring = "1.0.2"
