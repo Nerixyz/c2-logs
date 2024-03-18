@@ -10,9 +10,9 @@ keywords = ["debugging", "cli"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-anyhow = "1.0.80"
-bytemuck = { version = "1.14.3", features = ["derive"] }
-clap = { version = "4.5.2", features = ["derive"] }
+anyhow = "1.0.81"
+bytemuck = { version = "1.15.0", features = ["derive"] }
+clap = { version = "4.5.3", features = ["derive"] }
 colored = "2.1.0"
 ctrlc = "3.4.4"
 widestring = "1.0.2"
