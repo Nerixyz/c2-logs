@@ -1,4 +1,4 @@
-#![deny(clippy::cargo)]
+#![warn(clippy::cargo)]
 
 mod logging;
 mod managed_types;
