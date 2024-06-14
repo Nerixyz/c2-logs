@@ -1,11 +1,11 @@
 #![warn(clippy::cargo)]
+#![allow(clippy::multiple_crate_versions)] // windows-sys
 
 mod logging;
 mod managed_types;
 mod printer;
 mod processes;
 mod qt;
-mod str_ext;
 mod strings;
 
 use std::ffi::{OsStr, OsString};
@@ -40,6 +40,9 @@ struct Args {
 
     #[arg(short, help = "Output to a file instead")]
     output_file: Option<OsString>,
+
+    #[arg(long, help = "Changes the output of Qt's message handler")]
+    pattern: Option<String>,
 
     #[arg(
         help = "Qt filter rules (e.g. *.debug=true or foo.bar.debug=false) multiple rules will be joined by a newline"
@@ -94,10 +97,10 @@ fn debugger_thread(pid: u32, output_file: Option<&OsStr>) -> anyhow::Result<()> 
     Ok(())
 }
 
-fn apply_logging_rules(pid: u32, rules: &str) -> anyhow::Result<()> {
+fn apply_settings(pid: u32, rules: Option<&str>, pattern: Option<&str>) -> anyhow::Result<()> {
     let (v, path) = processes::qtcore_path(pid).context("finding QtCore path")?;
     log_info!("Chatterino using {v:?} QtCore loaded from {path:?}");
-    qt::set_logging_rules(pid, v, &path, rules).context("set_logging_rules")?;
+    qt::set_rules_and_pattern(pid, v, &path, rules, pattern).context("set_rules_and_pattern")?;
     log_info!("Applied logging rules!");
     Ok(())
 }
@@ -120,9 +123,14 @@ fn main() -> anyhow::Result<()> {
     };
     log_info!("Found chatterino PID: {chatterino_pid}");
 
-    if !args.rules.is_empty() {
-        apply_logging_rules(chatterino_pid, &args.rules.join("\n"))?;
-    }
+    apply_settings(
+        chatterino_pid,
+        Some(args.rules)
+            .filter(|r| !r.is_empty())
+            .map(|r| r.join("\n"))
+            .as_deref(),
+        args.pattern.as_deref(),
+    )?;
 
     let (tx, rx) = std::sync::mpsc::channel();
     {

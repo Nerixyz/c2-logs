@@ -6,21 +6,18 @@ use std::{
 use anyhow::{anyhow, Context};
 use windows::{
     core::{s, PCSTR},
-    Win32::{
-        Foundation::FreeLibrary,
-        System::{
-            Diagnostics::Debug::WriteProcessMemory,
-            LibraryLoader::{GetProcAddress, LoadLibraryA},
-            Memory::{VirtualAllocEx, MEM_COMMIT, PAGE_READWRITE},
-            Threading::{
-                CreateRemoteThread, OpenProcess, WaitForSingleObject, INFINITE,
-                PROCESS_CREATE_THREAD, PROCESS_VM_OPERATION, PROCESS_VM_WRITE,
-            },
+    Win32::System::{
+        Diagnostics::Debug::WriteProcessMemory,
+        LibraryLoader::{GetProcAddress, LoadLibraryA},
+        Memory::{VirtualAllocEx, MEM_COMMIT, PAGE_READWRITE},
+        Threading::{
+            CreateRemoteThread, OpenProcess, WaitForSingleObject, INFINITE, PROCESS_CREATE_THREAD,
+            PROCESS_VM_OPERATION, PROCESS_VM_WRITE,
         },
     },
 };
 
-use crate::managed_types::ManagedHandle;
+use crate::managed_types::{ManagedHandle, ManagedModule};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QtVersion {
@@ -28,66 +25,100 @@ pub enum QtVersion {
     Qt6,
 }
 
-pub fn set_logging_rules(
+const SET_FILTER_RULES: PCSTR = s!("?setFilterRules@QLoggingCategory@@SAXAEBVQString@@@Z");
+const SET_MESSAGE_PATTERN: PCSTR = s!("?qSetMessagePattern@@YAXAEBVQString@@@Z");
+
+pub fn set_rules_and_pattern(
     pid: u32,
     version: QtVersion,
     core_path: &CStr,
-    rules: &str,
+    rules: Option<&str>,
+    pattern: Option<&str>,
 ) -> anyhow::Result<()> {
+    if rules.is_none() && pattern.is_none() {
+        return Ok(());
+    }
+
     unsafe {
-        let qt_core =
-            LoadLibraryA(PCSTR(core_path.as_ptr() as *const u8)).context("LoadLibraryA")?;
-        let addr = GetProcAddress(
-            qt_core,
-            s!("?setFilterRules@QLoggingCategory@@SAXAEBVQString@@@Z"),
-        )
-        .ok_or_else(|| anyhow!("Failed to find QLoggingCategory::setFilterRules"))?;
-
-        let process = OpenProcess(
-            PROCESS_CREATE_THREAD | PROCESS_VM_WRITE | PROCESS_VM_OPERATION,
-            false,
-            pid,
-        )
-        .context("OpenProcess")?;
-        let process = ManagedHandle::new(process);
-
-        let allocation_size = version.allocation_size(rules);
-        let allocation =
-            VirtualAllocEx(*process, None, allocation_size, MEM_COMMIT, PAGE_READWRITE);
-        if allocation.is_null() {
-            return Err(anyhow!("Failed to allocate memory in process"));
+        let (qt_core, process) = open_process_and_lib(pid, core_path)?;
+        if let Some(rules) = rules {
+            call_qstring_const_ref(&qt_core, &process, SET_FILTER_RULES, version, rules)?;
         }
-
-        let (data, start_addr) = version.make_qstring(allocation, rules);
-        if data.len() > allocation_size {
-            return Err(anyhow!("QString was larger than expected"));
+        if let Some(pattern) = pattern {
+            call_qstring_const_ref(&qt_core, &process, SET_MESSAGE_PATTERN, version, pattern)?;
         }
-
-        WriteProcessMemory(
-            *process,
-            allocation,
-            data.as_ptr() as *mut ffi::c_void,
-            data.len(),
-            None,
-        )
-        .context("WriteProcessMemory")?;
-        let thread = CreateRemoteThread(
-            *process,
-            None,
-            0,
-            Some(std::mem::transmute(addr)),
-            Some(start_addr),
-            0,
-            None,
-        )
-        .context("CreateRemoteThread")?;
-
-        WaitForSingleObject(thread, INFINITE);
-
-        FreeLibrary(qt_core).ok();
-
         Ok(())
     }
+}
+
+unsafe fn open_process_and_lib(
+    pid: u32,
+    core_path: &CStr,
+) -> anyhow::Result<(ManagedModule, ManagedHandle)> {
+    let qt_core = LoadLibraryA(PCSTR(core_path.as_ptr() as *const u8)).context("LoadLibraryA")?;
+
+    let process = OpenProcess(
+        PROCESS_CREATE_THREAD | PROCESS_VM_WRITE | PROCESS_VM_OPERATION,
+        false,
+        pid,
+    )
+    .context("OpenProcess")?;
+
+    Ok((ManagedModule::new(qt_core), ManagedHandle::new(process)))
+}
+
+unsafe fn call_qstring_const_ref(
+    qt_core: &ManagedModule,
+    process: &ManagedHandle,
+    function_name: PCSTR,
+    version: QtVersion,
+    arg: &str,
+) -> anyhow::Result<()> {
+    let addr = GetProcAddress(qt_core.inner(), function_name)
+        .ok_or_else(|| anyhow!("Failed to find {function_name:?}"))?;
+
+    let allocation_size = version.allocation_size(arg);
+    let allocation = VirtualAllocEx(
+        process.inner(),
+        None,
+        allocation_size,
+        MEM_COMMIT,
+        PAGE_READWRITE,
+    );
+    if allocation.is_null() {
+        return Err(anyhow!("Failed to allocate memory in process"));
+    }
+
+    let (data, start_addr) = version.make_qstring(allocation, arg);
+    if data.len() > allocation_size {
+        return Err(anyhow!("QString was larger than expected"));
+    }
+
+    WriteProcessMemory(
+        process.inner(),
+        allocation,
+        data.as_ptr() as *mut ffi::c_void,
+        data.len(),
+        None,
+    )
+    .context("WriteProcessMemory")?;
+    let thread = CreateRemoteThread(
+        process.inner(),
+        None,
+        0,
+        Some(std::mem::transmute::<
+            unsafe extern "system" fn() -> isize,
+            unsafe extern "system" fn(*mut std::ffi::c_void) -> u32,
+        >(addr)),
+        Some(start_addr),
+        0,
+        None,
+    )
+    .context("CreateRemoteThread")?;
+
+    WaitForSingleObject(thread, INFINITE);
+
+    Ok(())
 }
 
 #[derive(Clone, Copy, bytemuck::NoUninit)]
