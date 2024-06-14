@@ -75,7 +75,10 @@ pub fn set_logging_rules(
             *process,
             None,
             0,
-            Some(std::mem::transmute(addr)),
+            Some(std::mem::transmute::<
+                unsafe extern "system" fn() -> isize,
+                unsafe extern "system" fn(*mut std::ffi::c_void) -> u32,
+            >(addr)),
             Some(start_addr),
             0,
             None,

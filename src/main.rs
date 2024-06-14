@@ -1,11 +1,11 @@
 #![warn(clippy::cargo)]
+#![allow(clippy::multiple_crate_versions)] // windows-sys
 
 mod logging;
 mod managed_types;
 mod printer;
 mod processes;
 mod qt;
-mod str_ext;
 mod strings;
 
 use std::ffi::{OsStr, OsString};
