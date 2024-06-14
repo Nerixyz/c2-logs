@@ -130,10 +130,10 @@ pub fn qtcore_path(pid: u32) -> anyhow::Result<(QtVersion, CString)> {
             let Ok(path) = cstr.to_str() else {
                 continue;
             };
-            if path.ends_with("Qt6Core.dll") {
+            if path.ends_with("Qt6Core.dll") || path.ends_with("Qt6Cored.dll") {
                 return Ok((QtVersion::Qt6, cstr.to_owned()));
             }
-            if path.ends_with("Qt5Core.dll") {
+            if path.ends_with("Qt5Core.dll") || path.ends_with("Qt5Cored.dll") {
                 return Ok((QtVersion::Qt5, cstr.to_owned()));
             }
         }
