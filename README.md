@@ -11,6 +11,8 @@ You can specify multiple rules.
 To enable debug logging from Chatterino while excluding the `chatterino.http` category, run `c2-logs chatterino.*.debug=true chatterino.http.debug=false`.
 Check [Qt's documentation](https://doc.qt.io/qt-6/qloggingcategory.html#configuring-categories) on the logging rules.
 
+In addition to the rules, the logging pattern can be customized through `--pattern` as well (`[%{time}] %{category}: %{message}` will include the time for example). Check [Qt's documentation](https://doc.qt.io/qt-6/qtlogging.html#qSetMessagePattern) for all variables.
+
 ```text
 Usage: c2-logs.exe [OPTIONS] [RULES]...
 
@@ -18,9 +20,12 @@ Arguments:
   [RULES]...  Qt filter rules (e.g. *.debug=true or foo.bar.debug=false) multiple rules will be joined by a newline
 
 Options:
-      --exe <EXECUTABLE>  Use this to specify the name of the chatterino executable. [default: chatterino.exe]
-      --pid <PID>         Use this to specify a specific process-id to attach to.
-  -o <OUTPUT_FILE>        Output to a file instead
+      --exe <EXECUTABLE>   Use this to specify the name of the chatterino executable. [default: chatterino.exe]
+      --pid <PID>          Use this to specify a specific process-id to attach to.
+  -o <OUTPUT_FILE>         Output to a file instead
+      --pattern <PATTERN>  Changes the output of Qt's message handler
+  -h, --help               Print help
+  -V, --version            Print version
 ```
 
 ## Building
