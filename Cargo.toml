@@ -11,7 +11,7 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.86"
-bytemuck = { version = "1.17.0", features = ["derive"] }
+bytemuck = { version = "1.17.1", features = ["derive"] }
 clap = { version = "4.5.16", features = ["derive"] }
 colored = "2.1.0"
 ctrlc = "3.4.5"
