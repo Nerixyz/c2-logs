@@ -92,7 +92,7 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
 
         let mut buf = vec![0u16; chatterino_name.len()];
 
-        if GetModuleBaseNameW(handle, process_module, &mut buf) == 0 {
+        if GetModuleBaseNameW(handle, Some(process_module), &mut buf) == 0 {
             return Err(WinError::from_win32());
         }
 
@@ -123,7 +123,7 @@ pub fn qtcore_path(pid: u32) -> anyhow::Result<(QtVersion, CString)> {
         let n_modules = needed as usize / std::mem::size_of::<HMODULE>();
 
         for module in &modules[..n_modules] {
-            GetModuleFileNameExA(*handle, *module, &mut buf);
+            GetModuleFileNameExA(Some(*handle), Some(*module), &mut buf);
             let Ok(cstr) = CStr::from_bytes_until_nul(&buf) else {
                 continue;
             };
