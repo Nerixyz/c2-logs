@@ -16,7 +16,7 @@ clap = { version = "4.5.32", features = ["derive"] }
 colored = "3.0.0"
 ctrlc = "3.4.5"
 widestring = "1.2.0"
-windows = { version = "0.60.0", features = [
+windows = { version = "0.61.1", features = [
     "Win32_System_Com",
     "Win32_UI_Accessibility",
     "Win32_Foundation",
