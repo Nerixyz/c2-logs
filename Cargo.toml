@@ -12,9 +12,9 @@ categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0.98"
 bytemuck = { version = "1.23.0", features = ["derive"] }
-clap = { version = "4.5.37", features = ["derive"] }
+clap = { version = "4.5.38", features = ["derive"] }
 colored = "3.0.0"
-ctrlc = "3.4.6"
+ctrlc = "3.4.7"
 widestring = "1.2.0"
 windows = { version = "0.61.1", features = [
     "Win32_System_Com",
