@@ -93,7 +93,7 @@ fn is_chatterino(pid: u32, chatterino_name: &[u16]) -> Result<bool> {
         let mut buf = vec![0u16; chatterino_name.len()];
 
         if GetModuleBaseNameW(handle, Some(process_module), &mut buf) == 0 {
-            return Err(WinError::from_win32());
+            return Err(WinError::from_thread());
         }
 
         let _ = CloseHandle(handle);
